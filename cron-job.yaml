@@ -1,0 +1,34 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: job-launcher
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: create-job-role-serviceaccount
+          containers:
+          - name: job-launcher
+            image: naeemrashid/job-launcher:latest
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: "MYSQL_USER"
+                value: "root"
+              - name: "MYSQL_PORT"
+                value: "3306"
+              - name: "MYSQL_HOST"
+                value: "mysql"
+              - name: "MYSQL_DB"
+                value: "mysql"
+              - name: "PASS_SECRET"
+                value: "mysql-pass-4k975dk5g2"
+              - name: "SECRET_KEY"
+                value: "password"
+              - name: "JOB_DOCKER_IMAGE"
+                value: "naeemrashid/calc-palindrome:latest"
+
+          restartPolicy: OnFailure
+
+

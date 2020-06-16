@@ -1,0 +1,73 @@
+# Overview
+Deploy a Cron job in Kubernetes which launches a Kubernetes job pod  (using Kubernetes API)  and calculates the longest palindromic substring (and save it in a mysql database deployed over a Kubernetes cluster) from the string provided to that cronjob.
+
+# Setup Services
+
+## Prerequisite
++ minikube
++ Docker (Optional) for building docker images
++ Go(golang) for building locally (Optional)
+
+
+1. Generate secret for mysql using kustomization file
+kubectl create -k .
+2. Get the name of secret generated
+kubectl get secret | grep mysql-pass
+3. Edit mysql-manifest.yaml and change secret name under mysql deployment > containers > env > MYSQL_ROOT_PASSWORD
+4. Create MySQL resources
+kubectl create -f mysql-manifest.yaml
+5. Create service account with role and rolebinding for access to kubernetes api
+kubectl create -f rbac_access.yaml
+6. Change secret name in cron-job.yaml file and create cron-job under containers > env > PASS_SECRET
+kubectl create -f cron-job.yaml
+
+# Directory Structure
+
+├── README
+├── cron-job.yaml
+├── job-api
+│   ├── Dockerfile
+│   ├── README
+│   └── src
+│       ├── go.mod
+│       ├── go.sum
+│       └── job_launcher.go
+├── job-palindrome
+│   ├── Dockerfile
+│   ├── README
+│   └── src
+│       ├── go.mod
+│       ├── go.sum
+│       └── palindrome.go
+├── kustomization.yaml
+├── mysql-manifest.yaml
+├── mysql-nfs-volumes.yaml.example
+├── rbac_access.yaml
+└── vagrant
+    ├── Vagrantfile
+    ├── bootstrap.sh
+    ├── bootstrap_kmaster.sh
+    ├── bootstrap_kmaster_calico.sh
+    ├── bootstrap_kmaster_flannel.sh
+    ├── bootstrap_kworker.sh
+    ├── bootstrap_nfs.sh
+    └── kube-flannel.yaml
+
+5 directories, 24 files
+
++ cron-job.yaml is a kubernetes manifest to deploy a cronjob which gets triggered every minute
++ job-api/ directory includes source code for creating a container which uses kubernetes go-client to communicate with kubernetes cluster and deploy a Job object with the container image and configurations specified as environment variables. Dockerfile is preset in the same directory to build the docker image and a README file on how to build docker image as well as how to build code locally.
++ job-palindrome/ directory contains source code for calculating longest palindrome in O(n^2) time complexity and O(n) space complextiy. A string to calculate longest palindrome for, can be specified as an argument to binary(or docker container) with -inputString flag. Application calculates the longest palindromic string and save it to mysql database specified as environemnt variables.
++ kustomization.yaml generates kubernetes secret for password to be used in mysql database deployment.
++ mysql-manifest.yaml creates mysql database with init-containers to log the ip of the node on which pod is brought up as well as a service file to communicate with database. MySQL database uses persistent volume and persistent volume claim to create volume for database. The persistent volume is a hostpath volume and not an NFS volume. I did not have enough disk/ram space on my machine to setup an NFS server and configure with kubernetes so I went with hostPath volumes. But I have added a Vagrant file for launching a 2 node kubernetes cluster with an NFS server and add an example persistent-volume-nfs.yaml.example for a demo nfs pv setup.
++ rbac_access.yaml file creates rbac role, rolebinding and service account for the custom cronjob container to give access to communicating kubernetes api-server and creating job objects.
++ vagrant/ directory includes vagrant file and some bash script to bring up a kubernetes 2 node cluster with an NFS server. Inspired from this githhub repository https://github.com/justmeandopensource/kubernetes
+
+
+# NFS setup
+## prerequisite
++ vagrant
++ virtual box
+cd vagrant/ && vagrant up
+Log in to master node
+vagrant ssh kmaster
